@@ -1,0 +1,71 @@
+# 依存関係
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnpm-debug.log
+.npm/
+
+# ビルド成果物
+/dist/
+/build/
+*.tsbuildinfo
+
+# Vite関連
+.vite/
+.vite-ssg-temp/
+.vite-ssg-dist/
+
+# 環境変数
+.env
+.env.*
+!.env.example
+
+# キャッシュ
+.cache/
+.eslintcache
+.stylelintcache
+
+# エディタ設定
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS固有ファイル
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ログファイル
+logs/
+*.log
+
+# テスト関連
+/coverage/
+.nyc_output/
+
+# Three.js生成ファイル
+*.gltf
+*.glb
+*.mtl
+*.obj
+
+# 一時ファイル
+*.tmp
+*.temp
+temp/
+tmp/
+
+# ローカル開発用設定
+*.local 
+.specstory

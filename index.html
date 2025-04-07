@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Three.jsによる初音ミクドット絵アニメーション">
+    <title>初音ミク ドット絵アニメーション</title>
+    <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+    <div id="app">
+        <div id="canvas-container"></div>
+        
+        <div id="control-panel" class="control-panel">
+            <div class="control-group">
+                <label for="rotation-speed" class="control-label">回転速度</label>
+                <input type="range" id="rotation-speed" class="slider" min="0" max="100" value="50">
+            </div>
+            
+            <div class="control-group">
+                <label for="zoom-level" class="control-label">ズーム</label>
+                <input type="range" id="zoom-level" class="slider" min="50" max="150" value="100">
+            </div>
+            
+            <div class="control-group">
+                <label for="effect-intensity" class="control-label">エフェクト強度</label>
+                <input type="range" id="effect-intensity" class="slider" min="0" max="100" value="50">
+            </div>
+            
+            <div class="control-group">
+                <button id="reset-view" class="button">ビューをリセット</button>
+                <button id="toggle-animation" class="button">アニメーション ON/OFF</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="src/main.ts"></script>
+</body>
+</html> 

@@ -1,0 +1,144 @@
+src:
+  structure.yaml:
+    content: |-
+      Three.jsによる初音ミクドット絵アニメーションプロジェクト
+      - 提供されたドット絵画像をテクスチャとして使用
+      - Three.jsによる3Dピクセルアート表現
+      - TypeScriptによる型安全な実装
+      - Viteを使用した高速な開発環境
+      - シンプルなUIコントロールによるアニメーション調整機能
+    agent選定理由: |-
+      claude-3-5-sonnet-20241022は複雑なTypeScriptとThree.jsの実装に必要な細かいコードと論理構造を正確に理解・生成できるため選定しました。WebGLとグラフィックスプログラミングに関する深い理解が必要なプロジェクトに最適です。
+    dependency: []
+    agent: "claude-3-5-sonnet-20241022"
+    api: []
+  
+  local_image:
+    C3BUam2VEAACSXg.jpg:
+      content: ["blob:https://www.kamui.ai/e21affb0-932a-4c87-991c-6493c67e6e11"]
+      dependency: []
+      agent: "local-image"
+  
+  config:
+    package.json:
+      content: |-
+        プロジェクトの依存関係設定ファイル
+        - Three.js, TypeScript, Viteなどの必要なパッケージを定義
+        - ビルドとプレビュー用のスクリプト設定
+        - プロジェクトメタデータの設定
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+    
+    tsconfig.json:
+      content: |-
+        TypeScriptの設定ファイル
+        - 厳格な型チェックの有効化
+        - モジュール解決設定
+        - Three.jsと互換性のある設定
+        - 出力ディレクトリとソースマップの設定
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+    
+    vite.config.ts:
+      content: |-
+        Viteビルドツールの設定ファイル
+        - 開発サーバー設定
+        - ビルド最適化オプション
+        - プラグイン設定（TypeScript対応）
+        - アセット処理の設定
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+  
+  public:
+    index.html:
+      content: |-
+        アプリケーションのエントリーポイント
+        - メタタグの設定
+        - スタイルシートの読み込み
+        - Three.jsキャンバスのコンテナ
+        - UIコントロールの基本レイアウト
+        - TypeScriptエントリポイントの読み込み
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+  
+  src:
+    main.ts:
+      content: |-
+        アプリケーションのメインエントリポイント
+        - Threeシーンのセットアップ
+        - UIコントロールのイベントリスナー設定
+        - アニメーションループの初期化
+        - レスポンシブ設計の実装
+        - ドット絵画像の読み込みと処理
+      dependency:
+        - src/src/utils/PixelGenerator.ts
+        - src/src/components/ControlPanel.ts
+        - src/local_image/C3BUam2VEAACSXg.jpg
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+    
+    styles.css:
+      content: |-
+        アプリケーションのスタイル定義
+        - キャンバス表示の最適化
+        - UIコントロールのレイアウトとスタイル
+        - レスポンシブデザインのメディアクエリ
+        - アニメーション効果用のスタイル
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+    
+    components:
+      Scene.ts:
+        content: |-
+          Three.jsシーンの管理クラス
+          - カメラ、レンダラー、シーンの初期化
+          - ライティングのセットアップ
+          - ウィンドウリサイズ処理
+          - アニメーションループの実装
+          - ポストプロセッシング効果の適用
+        dependency: []
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+      
+      ControlPanel.ts:
+        content: |-
+          アニメーション制御用UIコンポーネント
+          - 回転速度、ズーム、エフェクト強度などの調整UI
+          - イベントリスナーとコールバック設定
+          - 設定の保存と復元機能
+          - モバイル対応のタッチインターフェース
+        dependency: []
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+    
+    utils:
+      PixelGenerator.ts:
+        content: |-
+          ドット絵からThree.jsの3Dピクセルを生成するユーティリティ
+          - 画像データからピクセル情報の抽出
+          - ピクセルごとの立方体メッシュ生成
+          - 色情報に基づくマテリアル適用
+          - インスタンス描画の最適化
+          - アニメーション動作の定義
+        dependency:
+          - src/local_image/C3BUam2VEAACSXg.jpg
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+      
+      TextureLoader.ts:
+        content: |-
+          画像テクスチャの読み込みと処理ユーティリティ
+          - 画像ファイルの非同期読み込み
+          - ピクセルデータへのアクセス処理
+          - カラーデータの抽出とマッピング
+          - 透明ピクセルの識別と処理
+          - メモリ最適化処理
+        dependency:
+          - src/local_image/C3BUam2VEAACSXg.jpg
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
