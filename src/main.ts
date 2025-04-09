@@ -22,7 +22,7 @@ const CONFIG = {
   // ピクセル解像度（1は元画像の解像度そのまま、小さくするほどピクセル数減少）
   pixelResolution: 0.9,
   // ブルームエフェクトの初期強度
-  bloomStrength: 0.6,
+  bloomStrength: 0.3,
   // フレームレート制限（nullの場合は制限なし）
   frameRateLimit: 30,
 };
@@ -128,6 +128,7 @@ class PixelArtScene {
       alpha: false, // アルファチャンネルを無効化して安定性向上
       stencil: false, // ステンシルバッファを無効化（不要なため）
       depth: true, // 深度バッファは保持
+      preserveDrawingBuffer: true, // 描画バッファを維持して時間経過による劣化を防止
     });
     
     // ピクセル比を設定（2以上の値は避けて安定性を確保）
@@ -135,10 +136,15 @@ class PixelArtScene {
     this.renderer.setPixelRatio(pixelRatio);
     
     this.renderer.setSize(container.clientWidth, container.clientHeight);
-    this.renderer.setClearColor(0x000000);
+    this.renderer.setClearColor(0x000000); // 黒色の背景
     
-    // くっきりした表示のための追加設定
-    this.renderer.shadowMap.enabled = false; // パフォーマンスのために無効
+    // 元の色を忠実に再現するための設定
+    this.renderer.outputEncoding = THREE.LinearEncoding; // リニアエンコーディングに変更
+    this.renderer.toneMapping = THREE.NoToneMapping; // トーンマッピングを無効化
+    this.renderer.toneMappingExposure = 1.0; // 標準露出
+    
+    // シャドウマップは無効のまま
+    this.renderer.shadowMap.enabled = false;
     
     // コンテナに追加
     container.appendChild(this.renderer.domElement);
@@ -156,13 +162,28 @@ class PixelArtScene {
    * ライトを設定します
    */
   private setupLights(): void {
-    // シンプルなライト構成に戻す
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // 環境光を適切な明るさに設定
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); // 全体の明るさを上げる (0.85→0.9)
+    ambientLight.userData = { originalIntensity: 0.9 }; // 元の強度を保存
     this.scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 5, 5);
+    // メインの指向性ライトを強めに
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // 輝度を上げる (0.7→0.8)
+    directionalLight.position.set(3, 4, 5);
+    directionalLight.userData = { originalIntensity: 0.8 }; // 元の強度を保存
     this.scene.add(directionalLight);
+    
+    // 補助ライトも少し強く
+    const backLight = new THREE.DirectionalLight(0xffffff, 0.3); // 輝度を上げる (0.25→0.3)
+    backLight.position.set(-4, 2, -3);
+    backLight.userData = { originalIntensity: 0.3 }; // 元の強度を保存
+    this.scene.add(backLight);
+    
+    // 正面からの光を強化
+    const frontLight = new THREE.DirectionalLight(0xffffff, 0.2); // 輝度を上げる (0.15→0.2)
+    frontLight.position.set(0, 0, 8);
+    frontLight.userData = { originalIntensity: 0.2 }; // 元の強度を保存
+    this.scene.add(frontLight);
   }
 
   /**
@@ -202,24 +223,19 @@ class PixelArtScene {
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    // ブルームエフェクトを安定性重視に設定
+    // ブルームエフェクトを白い部分が輝くように調整
     const size = this.renderer.getSize(new THREE.Vector2());
-    // サイズを小さくして安定性を向上
-    const bloomSize = new THREE.Vector2(
-      size.width * 0.8, 
-      size.height * 0.8
-    );
     
     this.bloomPass = new UnrealBloomPass(
-      bloomSize,
-      CONFIG.bloomStrength, 
-      0.3, // ラディウスを小さく
-      0.9  // 閾値を高めに
+      new THREE.Vector2(size.width, size.height),
+      CONFIG.bloomStrength, // 強度を増加
+      0.3, // ラディウスはそのまま
+      0.75  // 閾値を下げて白い部分をより輝かせる (0.9→0.75)
     );
     
     try {
       // @ts-ignore
-      this.bloomPass.kernelSize = 1; // カーネルサイズを最小に
+      this.bloomPass.kernelSize = 1; // 最小カーネルサイズ
     } catch (e) {
       console.warn('ブルームパスのカーネルサイズを設定できませんでした', e);
     }
@@ -273,7 +289,7 @@ class PixelArtScene {
       this.controls.minDistance = this.defaultCameraDistance * 0.25;
       
       // より自由なパン操作のために、ターゲットオフセットの範囲を設定
-      const panOffset = maxDimension * 1.5;
+      // const panOffset = maxDimension * 1.5;  // 未使用の変数を削除
       // 実際のメソッドがThree.jsのバージョンによって異なるため、両方のアプローチを試みる
       try {
         // @ts-ignore - 標準的なプロパティではない可能性がある
@@ -335,7 +351,7 @@ class PixelArtScene {
     // アニメーションの初期値を設定
     const startTime = Date.now();
     const duration = 1000; // ミリ秒単位のアニメーション時間（より長く滑らかに）
-    const startPosition = this.camera.position.clone();
+    const startPosition = this.camera.position.clone(); // 変数を復活させる
     const startTarget = this.controls.target.clone();
     
     // アニメーションを行う関数
@@ -349,11 +365,12 @@ class PixelArtScene {
       // ターゲットを更新
       this.controls.target.lerpVectors(startTarget, targetPosition, easeProgress);
       
-      // カメラの位置も補間
-      const direction = new THREE.Vector3().subVectors(this.camera.position, this.controls.target).normalize();
-      this.camera.position.copy(
-        this.controls.target.clone().add(direction.multiplyScalar(targetDistance))
-      );
+      // カメラの位置も補間（正しい補間方法に修正）
+      const newPosition = new THREE.Vector3();
+      newPosition.lerpVectors(startPosition, targetPosition.clone().add(
+        new THREE.Vector3(0, 0, targetDistance)
+      ), easeProgress);
+      this.camera.position.copy(newPosition);
       
       // コントロールを更新
       this.controls.update();
@@ -373,9 +390,9 @@ class PixelArtScene {
    * @param {number} t - 0〜1の進行度
    * @returns {number} - イージングを適用した進行度
    */
-  private easeInOutCubic(t: number): number {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  }
+  // private easeInOutCubic(t: number): number {
+  //   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // }
 
   /**
    * より強調された滑らかさのためのeaseInOutQuart関数
@@ -390,6 +407,25 @@ class PixelArtScene {
    * コントロールパネルを設定します
    */
   private setupControlPanel(): void {
+    // グローバルなリセット用関数として公開
+    (window as any).resetControlPanelValues = () => {
+      // LocalStorageをリセット
+      try {
+        const defaultSettings = {
+          rotationSpeed: 50,
+          zoomLevel: 50,
+          effectIntensity: 50,
+          isAnimating: true
+        };
+        localStorage.setItem('pixelArtSettings', JSON.stringify(defaultSettings));
+        
+        // ページをリロード
+        window.location.reload();
+      } catch (e) {
+        console.error('設定リセット失敗:', e);
+      }
+    };
+
     new ControlPanel({
       onBloomChange: this.updateBloomSettings.bind(this),
       onRotationChange: this.updateRotationSpeed.bind(this),
@@ -450,9 +486,27 @@ class PixelArtScene {
     
     // シーンのレンダリング - 固定座標でレンダリングし、小数点以下の揺らぎを防止
     try {
+      // マトリックスの自動更新を一時的に無効化して安定性を向上
       this.camera.matrixAutoUpdate = false;
       this.camera.updateMatrix(); // マニュアルでマトリックスを更新
       
+      // 毎フレーム光源の位置と強度を一定に保つ
+      // この処理により時間経過による明るさの変化を防止
+      const directionalLights = this.scene.children.filter(
+        child => child instanceof THREE.DirectionalLight
+      ) as THREE.DirectionalLight[];
+      
+      directionalLights.forEach(light => {
+        // 光源の位置を固定するため、position以外のプロパティをコピー
+        light.intensity = light.userData.originalIntensity || light.intensity;
+        
+        // 初回のみ元の強度を保存
+        if (light.userData.originalIntensity === undefined) {
+          light.userData.originalIntensity = light.intensity;
+        }
+      });
+      
+      // コンポーザーでレンダリング
       this.composer.render();
       
       this.camera.matrixAutoUpdate = true; // 元に戻す
@@ -508,8 +562,8 @@ class PixelArtScene {
    */
   private resetView(): void {
     // ビューをリセット前に現在の情報を保存
-    const startPosition = this.camera.position.clone();
-    const startTarget = this.controls.target.clone();
+    // const startPosition = this.camera.position.clone(); // 未使用の変数を削除
+    // const startTarget = this.controls.target.clone(); // 未使用の変数
     
     // カメラの基本位置を設定
     const origin = new THREE.Vector3(0, 0, 0);
@@ -561,8 +615,115 @@ class PixelArtScene {
     // カメラトランジションを開始
     this.startCameraTransition(origin, optimalDistance);
     
+    // エフェクトを直接リセット
+    this.resetEffects();
+    
+    // グローバルリセット関数を呼び出し
+    // これによりLocalStorageと設定がリセットされ、UIが更新される
+    if (typeof (window as any).resetControlPanelValues === 'function') {
+      // 設定をリセットして全体を更新
+      (window as any).resetControlPanelValues();
+    }
+    
     // コントロールの更新
     this.controls.update();
+  }
+
+  /**
+   * エフェクトとコントロールを初期値にリセットする専用メソッド
+   * より確実にUIとエフェクトを同期します
+   */
+  private resetEffects(): void {
+    // 初期値の定義
+    const defaultRotationSpeed = 5;
+    const defaultZoom = 50;
+    const defaultBloomStrength = CONFIG.bloomStrength;
+    const defaultBloomRadius = 0.3;
+    const defaultBloomThreshold = 0.75;
+
+    // 1. 内部モデルの値を初期化
+    
+    // 回転速度を初期値にリセット
+    this.pixelGenerator.setRotationSpeed(defaultRotationSpeed);
+    
+    // ズームを初期値にリセット
+    this.updateZoom(defaultZoom);
+    
+    // ブルームエフェクトを初期値に直接設定
+    this.bloomPass.strength = defaultBloomStrength;
+    this.bloomPass.radius = defaultBloomRadius;
+    this.bloomPass.threshold = defaultBloomThreshold;
+
+    // 2. ControlPanelのスライダーを完全リセット
+    this.resetAllSliders({
+      rotationSpeed: defaultRotationSpeed,
+      zoom: defaultZoom,
+      bloomStrength: defaultBloomStrength,
+      bloomRadius: defaultBloomRadius,
+      bloomThreshold: defaultBloomThreshold
+    });
+  }
+
+  /**
+   * すべてのスライダー要素を確実にリセットする
+   * @param {Object} values - 設定すべき各スライダーの値
+   */
+  private resetAllSliders(values: { 
+    rotationSpeed: number, 
+    zoom: number, 
+    bloomStrength: number, 
+    bloomRadius: number, 
+    bloomThreshold: number 
+  }): void {
+    // 1. まずControlPanelクラスで使用されているIDで要素を取得
+    this.forceUpdateSlider('rotation-speed', values.rotationSpeed.toString());
+    this.forceUpdateSlider('zoom-level', values.zoom.toString());
+    
+    // ControlPanelクラスではエフェクト強度IDが異なる
+    this.forceUpdateSlider('effect-intensity', '50'); // デフォルト値50%
+    
+    // 2. 直接ブルームパスを更新
+    this.bloomPass.strength = values.bloomStrength;
+    this.bloomPass.radius = values.bloomRadius;
+    this.bloomPass.threshold = values.bloomThreshold;
+    
+    // 3. LocalStorageも強制的にリセット
+    try {
+      const defaultSettings = {
+        rotationSpeed: 50,
+        zoomLevel: 50,
+        effectIntensity: 50,
+        isAnimating: true
+      };
+      localStorage.setItem('pixelArtSettings', JSON.stringify(defaultSettings));
+      console.log('設定をリセットしました');
+    } catch (e) {
+      console.warn('設定のリセットに失敗:', e);
+    }
+    
+    // 4. ControlPanelを強制的に再初期化
+    this.forceRefreshControlPanel();
+  }
+
+  /**
+   * 一般的なスライダーを強制的に更新
+   * @param {string} sliderId - スライダーのID
+   * @param {string} value - 設定する値
+   */
+  private forceUpdateSlider(sliderId: string, value: string): void {
+    const slider = document.getElementById(sliderId) as HTMLInputElement;
+    if (!slider) return;
+    
+    try {
+      // 値を設定
+      slider.value = value;
+      
+      // イベントをディスパッチ
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+      slider.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (e) {
+      console.warn(`${sliderId}更新エラー:`, e);
+    }
   }
 
   /**
@@ -620,6 +781,50 @@ class PixelArtScene {
           listElement.appendChild(focusItem);
         }
       }
+    }
+  }
+
+  /**
+   * ControlPanelを強制的に再初期化する
+   * UIの状態をリセットします
+   */
+  private forceRefreshControlPanel(): void {
+    // 1. コントロールパネルの要素をすべて取得
+    const controlPanel = document.querySelector('.control-panel');
+    if (!controlPanel) return;
+    
+    try {
+      // 2. すべての入力要素をデフォルト値に戻す
+      const sliders = controlPanel.querySelectorAll('input[type="range"]');
+      sliders.forEach(slider => {
+        const id = (slider as HTMLElement).id;
+        if (id === 'rotation-speed') (slider as HTMLInputElement).value = '50';
+        if (id === 'zoom-level') (slider as HTMLInputElement).value = '50';
+        if (id === 'effect-intensity') (slider as HTMLInputElement).value = '50';
+        
+        // changeイベントを発火
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+        slider.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      
+      // 3. 表示を強制的に更新
+      const htmlControlPanel = controlPanel as HTMLElement;
+      const oldDisplay = htmlControlPanel.style.display;
+      htmlControlPanel.style.display = 'none';
+      
+      // DOMの再描画を強制
+      setTimeout(() => {
+        htmlControlPanel.style.display = oldDisplay;
+        
+        // 4. 念のため特定のスライダーを再度更新
+        const effectSlider = document.getElementById('effect-intensity') as HTMLInputElement;
+        if (effectSlider) {
+          effectSlider.value = '50';
+          effectSlider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 10);
+    } catch (e) {
+      console.warn('コントロールパネルの更新に失敗:', e);
     }
   }
 }

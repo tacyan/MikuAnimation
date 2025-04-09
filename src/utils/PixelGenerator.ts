@@ -104,11 +104,13 @@ export class PixelGenerator {
     // ピクセルは正確な整数サイズにして、ズレを防止
     this.pixelGeometry = new THREE.BoxGeometry(this.pixelSize, this.pixelSize, this.pixelSize);
     
-    // シンプルなPhongマテリアルを高品質設定に
+    // マテリアルを自然な見た目に調整
     this.pixelMaterial = new THREE.MeshPhongMaterial({
-      shininess: 60, // 光沢を適度に
-      specular: 0x444444, // スペキュラハイライトを控えめに
-      flatShading: true // フラットシェーディングで斜線のズレを軽減
+      shininess: 25, // 光沢は維持
+      specular: 0x222222, // スペキュラも維持
+      flatShading: true, // フラットシェーディングは維持
+      emissive: 0x333333, // 発光効果をさらに強化 (0x222222→0x333333)
+      emissiveIntensity: 0.15 // 発光強度を上げる (0.1→0.15)
     });
     
     // インスタンス化されたメッシュを作成
@@ -133,10 +135,31 @@ export class PixelGenerator {
         const alpha = data[index + 3];
 
         if (alpha > 10) {
-          // 色成分を元のまま使用
+          // 色成分を元の画像と同じに
           const r = data[index] / 255;
           const g = data[index + 1] / 255;
           const b = data[index + 2] / 255;
+          
+          // 全体の明るさをさらに上げる
+          let enhancedR = Math.min(1, r * 1.1); // 1.05→1.1に増加
+          let enhancedG = Math.min(1, g * 1.1);
+          let enhancedB = Math.min(1, b * 1.1);
+          
+          // 白色に近い色かどうかを判定
+          const brightness = (r + g + b) / 3; // 明るさの平均値
+          const isNearWhite = brightness > 0.65; // 明るさが65%以上なら白色に近いと判断（0.7→0.65に下げて対象範囲を拡大）
+          
+          if (isNearWhite) {
+            // 白色に近い部分は明るさをより強調
+            enhancedR = Math.min(1, r * 1.2); // 1.15→1.2に増加
+            enhancedG = Math.min(1, g * 1.2);
+            enhancedB = Math.min(1, b * 1.2);
+          }
+          
+          // 値の範囲をクリップ（0〜1に収める）
+          enhancedR = Math.max(0, Math.min(1, enhancedR));
+          enhancedG = Math.max(0, Math.min(1, enhancedG));
+          enhancedB = Math.max(0, Math.min(1, enhancedB));
           
           // 位置を設定 - 座標を固定した整数倍に調整して揺らぎをなくす
           // pixelSizeの倍数にスナップさせる
@@ -144,7 +167,6 @@ export class PixelGenerator {
           const posY = Math.floor((centerY - y) * 10) / 10 * this.pixelSize;
           
           // スケールも1に固定して揺らぎを防止
-          const scaleMatrix = new THREE.Matrix4().makeScale(1, 1, 1);
           matrix.compose(
             new THREE.Vector3(posX, posY, 0),
             new THREE.Quaternion(),
@@ -153,7 +175,7 @@ export class PixelGenerator {
           
           // 各インスタンスの変換行列とカラーを設定
           this.instancedMesh.setMatrixAt(instanceIndex, matrix);
-          this.instancedMesh.setColorAt(instanceIndex, color.setRGB(r, g, b));
+          this.instancedMesh.setColorAt(instanceIndex, color.setRGB(enhancedR, enhancedG, enhancedB));
           
           instanceIndex++;
         }
@@ -191,8 +213,9 @@ export class PixelGenerator {
     if (this.group) {
       this.group.rotation.y += this.rotationSpeed;
       
-      // 揺れを小さく安定させる - 揺れの振幅を0.1から0.05に減少
-      this.group.rotation.x = Math.sin(Date.now() * 0.0008) * 0.05;
+      // 揺れを固定値に設定して時間経過による変化をなくす
+      // this.group.rotation.x = Math.sin(Date.now() * 0.0008) * 0.05;
+      this.group.rotation.x = 0; // 揺れを無効化して安定させる
     }
   }
 
