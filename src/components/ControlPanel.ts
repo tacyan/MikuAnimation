@@ -141,10 +141,18 @@ export class ControlPanel {
     const intensity = parseInt(target.value, 10);
     this.settings.effectIntensity = intensity;
     
-    // エフェクト強度から各パラメータを計算
-    const strength = intensity / 100 * 3;
-    const radius = intensity / 100 * 1;
-    const threshold = Math.max(0.1, 1 - intensity / 100);
+    // エフェクト強度から各パラメータを計算（非線形マッピングを使用）
+    // 低い値でも適度な効果を得られるように指数関数的なカーブを使用
+    const normalizedIntensity = intensity / 100;
+    
+    // 強度：低い値でもある程度の効果を持ち、高い値では緩やかに増加
+    const strength = Math.pow(normalizedIntensity, 1.5) * 2.5 + (normalizedIntensity * 0.5);
+    
+    // 半径：低い値ではより小さく、高い値でより広がる
+    const radius = Math.pow(normalizedIntensity, 1.2) * 0.8 + (normalizedIntensity * 0.2);
+    
+    // 閾値：高い値ほど光る部分が少なくなる（反比例的な関係）
+    const threshold = Math.max(0.1, 1 - Math.pow(normalizedIntensity, 0.8));
     
     if (this.callbacks.onBloomChange) {
       this.callbacks.onBloomChange({ strength, radius, threshold });
@@ -187,7 +195,7 @@ export class ControlPanel {
   private loadSettings(): ControlPanelSettings {
     const defaultSettings: ControlPanelSettings = {
       rotationSpeed: 50,
-      zoomLevel: 100,
+      zoomLevel: 50,
       effectIntensity: 50,
       isAnimating: true
     };

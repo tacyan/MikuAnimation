@@ -162,3 +162,48 @@ canvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+
+/* 操作説明ツールチップ */
+.controls-info {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: var(--text-primary);
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  z-index: 100;
+  transition: opacity 0.3s;
+  opacity: 0.7;
+  max-width: 250px;
+}
+
+.controls-info:hover {
+  opacity: 1;
+}
+
+.controls-info h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: var(--accent-color);
+}
+
+.controls-info ul {
+  margin: 0;
+  padding: 0 0 0 18px;
+  list-style-type: circle;
+}
+
+.controls-info li {
+  margin-bottom: 4px;
+}
+
+@media (max-width: 768px) {
+  .controls-info {
+    font-size: 0.7rem;
+    padding: 8px 12px;
+    bottom: 10px;
+    left: 10px;
+  }
+}

@@ -18,11 +18,11 @@ import { ControlPanel } from './components/ControlPanel';
  */
 const CONFIG = {
   // レンダリング品質（1は最高品質、値を小さくすると低解像度でパフォーマンス向上）
-  renderScale: 0.75,
+  renderScale: 1.0,
   // ピクセル解像度（1は元画像の解像度そのまま、小さくするほどピクセル数減少）
-  pixelResolution: 0.4,
+  pixelResolution: 0.9,
   // ブルームエフェクトの初期強度
-  bloomStrength: 1.0,
+  bloomStrength: 0.6,
   // フレームレート制限（nullの場合は制限なし）
   frameRateLimit: 30,
 };
@@ -42,6 +42,8 @@ class PixelArtScene {
   private isAnimating: boolean = true;
   private lastFrameTime: number = 0;
   private frameInterval: number = CONFIG.frameRateLimit ? (1000 / CONFIG.frameRateLimit) : 0;
+  private defaultCameraDistance: number = 10;
+  private cameraAdjusted: boolean = false;
 
   /**
    * コンストラクタ
@@ -78,8 +80,11 @@ class PixelArtScene {
     this.setupPixelArt();
     this.setupControlPanel();
     
-    // ウィンドウリサイズイベントの設定
+    // イベントリスナーの設定
     window.addEventListener('resize', this.handleResize.bind(this));
+    
+    // クリックイベントでのフォーカス機能を追加
+    this.setupClickFocus();
     
     // 初期アニメーションを開始
     this.animate(0);
@@ -117,20 +122,25 @@ class PixelArtScene {
   private setupRenderer(container: HTMLElement): void {
     // レンダラーの作成と設定
     this.renderer = new THREE.WebGLRenderer({ 
-      antialias: false, // アンチエイリアスを無効化（パフォーマンス向上）
-      powerPreference: 'high-performance' // 高性能モードを優先
+      antialias: true, // アンチエイリアス有効化
+      powerPreference: 'high-performance', // 高性能モードを優先
+      precision: 'highp', // 高精度レンダリング
+      alpha: false, // アルファチャンネルを無効化して安定性向上
+      stencil: false, // ステンシルバッファを無効化（不要なため）
+      depth: true, // 深度バッファは保持
     });
     
-    // ピクセル比を設定（デバイスピクセル比 × レンダリングスケール）
-    const pixelRatio = window.devicePixelRatio * CONFIG.renderScale;
+    // ピクセル比を設定（2以上の値は避けて安定性を確保）
+    const pixelRatio = Math.min(window.devicePixelRatio, 1.5);
     this.renderer.setPixelRatio(pixelRatio);
     
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.setClearColor(0x000000);
     
-    // 以下の設定でGPUの負荷を軽減
-    this.renderer.shadowMap.enabled = false;
+    // くっきりした表示のための追加設定
+    this.renderer.shadowMap.enabled = false; // パフォーマンスのために無効
     
+    // コンテナに追加
     container.appendChild(this.renderer.domElement);
   }
 
@@ -138,7 +148,7 @@ class PixelArtScene {
    * カメラを設定します
    */
   private setupCamera(): void {
-    this.camera.position.set(0, 0, 10);
+    this.camera.position.set(0, 0, this.defaultCameraDistance);
     this.camera.lookAt(0, 0, 0);
   }
 
@@ -146,7 +156,7 @@ class PixelArtScene {
    * ライトを設定します
    */
   private setupLights(): void {
-    // シンプルなライト構成でパフォーマンスを向上
+    // シンプルなライト構成に戻す
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
     
@@ -161,15 +171,24 @@ class PixelArtScene {
   private setupControls(): void {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     
-    // コントロールの負荷を軽減する設定
+    // 3D操作を強化した設定
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.1;
     this.controls.rotateSpeed = 0.7;
     this.controls.enableZoom = true;
     this.controls.zoomSpeed = 0.8;
-    this.controls.enablePan = false;  // パン機能を無効化
-    this.controls.maxDistance = 20;   // ズームアウトの制限
-    this.controls.minDistance = 3;    // ズームインの制限
+    this.controls.enablePan = true;  // パン機能を有効化
+    this.controls.panSpeed = 0.5;    // パンの速度を設定
+    this.controls.maxDistance = 30;  // ズームアウトの制限
+    this.controls.minDistance = 2;   // ズームインの制限
+    
+    // 追加のコントロール設定
+    this.controls.screenSpacePanning = true; // カメラ方向に沿ったパンを有効化
+    this.controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,     // 左クリック: 回転
+      MIDDLE: THREE.MOUSE.DOLLY,    // 中クリック: ズーム
+      RIGHT: THREE.MOUSE.PAN        // 右クリック: パン
+    };
   }
 
   /**
@@ -183,20 +202,28 @@ class PixelArtScene {
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    // ブルームエフェクトの追加（軽量化した設定）
+    // ブルームエフェクトを安定性重視に設定
     const size = this.renderer.getSize(new THREE.Vector2());
-    this.bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(size.width * CONFIG.renderScale, size.height * CONFIG.renderScale),
-      CONFIG.bloomStrength, 0.4, 0.85
+    // サイズを小さくして安定性を向上
+    const bloomSize = new THREE.Vector2(
+      size.width * 0.8, 
+      size.height * 0.8
     );
     
-    // サンプル数を減らしてパフォーマンスを向上（kernelSizeプロパティがない場合はスキップ）
+    this.bloomPass = new UnrealBloomPass(
+      bloomSize,
+      CONFIG.bloomStrength, 
+      0.3, // ラディウスを小さく
+      0.9  // 閾値を高めに
+    );
+    
     try {
       // @ts-ignore
-      this.bloomPass.kernelSize = 2;
+      this.bloomPass.kernelSize = 1; // カーネルサイズを最小に
     } catch (e) {
       console.warn('ブルームパスのカーネルサイズを設定できませんでした', e);
     }
+    
     this.composer.addPass(this.bloomPass);
   }
 
@@ -207,16 +234,163 @@ class PixelArtScene {
     try {
       const pixels = await this.pixelGenerator.generateFromImage('/src/local_image/C3BUam2VEAACSXg.jpg');
       this.scene.add(pixels);
+      
+      // 画像読み込み後にカメラ設定を調整
+      this.adjustCameraForImage();
     } catch (error) {
       console.error('ピクセルアートの生成に失敗しました:', error);
     }
   }
 
   /**
+   * 画像のアスペクト比に基づいてカメラを調整します
+   */
+  private adjustCameraForImage(): void {
+    const aspectRatio = this.pixelGenerator.getImageAspectRatio();
+    const maxDimension = this.pixelGenerator.getMaxDimension();
+    
+    if (aspectRatio > 1) {
+      // 縦長画像の場合
+      console.log('縦長画像を検出しました。カメラを調整します。');
+      
+      // カメラの視野角を計算（縦長画像では広い視野角が必要）
+      const fov = this.camera.fov;
+      
+      // 画像の全体が見えるように距離を計算
+      // 縦長の場合は高さに基づいて計算
+      const distance = (maxDimension / 2) / Math.tan((fov / 2) * Math.PI / 180);
+      
+      // 余裕を持たせた距離に設定
+      const adjustedDistance = distance * 1.2;
+      this.defaultCameraDistance = adjustedDistance;
+      
+      // カメラ位置の更新
+      this.camera.position.z = this.defaultCameraDistance;
+      this.camera.updateProjectionMatrix();
+      
+      // コントロールの制限も更新（より広範囲の移動を許可）
+      this.controls.maxDistance = this.defaultCameraDistance * 2.5;
+      this.controls.minDistance = this.defaultCameraDistance * 0.25;
+      
+      // より自由なパン操作のために、ターゲットオフセットの範囲を設定
+      const panOffset = maxDimension * 1.5;
+      // 実際のメソッドがThree.jsのバージョンによって異なるため、両方のアプローチを試みる
+      try {
+        // @ts-ignore - 標準的なプロパティではない可能性がある
+        if (this.controls.maxPolarAngle) {
+          // ポーラー角の制限を緩和
+          this.controls.maxPolarAngle = Math.PI * 0.85;
+          this.controls.minPolarAngle = Math.PI * 0.15;
+        }
+      } catch (e) {
+        console.warn('カメラコントロールの角度制限設定に失敗しました', e);
+      }
+      
+      this.cameraAdjusted = true;
+    }
+    
+    // 初期位置で微妙に角度をつけて、立体感を強調
+    this.camera.position.y = this.defaultCameraDistance * 0.1;
+    this.camera.lookAt(0, 0, 0);
+    this.controls.update();
+  }
+
+  /**
+   * 特定の部分にフォーカスします（外部から呼び出し可能）
+   * @param {Object} position - フォーカスする位置
+   * @param {boolean} doZoom - ズームインするかどうか
+   */
+  focusOnPosition(position: THREE.Vector3, doZoom: boolean = false): void {
+    // コントロールのターゲットを更新
+    this.controls.target.copy(position);
+    
+    // 現在のカメラ距離を取得
+    const currentDistance = this.camera.position.distanceTo(this.controls.target);
+    
+    // カメラの方向ベクトルを計算
+    const direction = new THREE.Vector3().subVectors(
+      this.camera.position, this.controls.target
+    ).normalize();
+    
+    // ズームする場合は近づける、しない場合は現在の距離を維持
+    const targetDistance = doZoom ? 
+      Math.max(this.controls.minDistance, currentDistance * 0.3) : // 現在の距離の30%まで近づける（より強いズーム効果）
+      currentDistance;
+    
+    // カメラの位置を調整
+    this.camera.position.copy(
+      position.clone().add(direction.multiplyScalar(targetDistance))
+    );
+    
+    // アニメーション効果のためのトランジション開始
+    this.startCameraTransition(position, targetDistance);
+  }
+  
+  /**
+   * カメラのスムーズなトランジションを開始します
+   * @param {THREE.Vector3} targetPosition - ターゲット位置
+   * @param {number} targetDistance - ターゲット距離
+   */
+  private startCameraTransition(targetPosition: THREE.Vector3, targetDistance: number): void {
+    // アニメーションの初期値を設定
+    const startTime = Date.now();
+    const duration = 1000; // ミリ秒単位のアニメーション時間（より長く滑らかに）
+    const startPosition = this.camera.position.clone();
+    const startTarget = this.controls.target.clone();
+    
+    // アニメーションを行う関数
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // イージング関数を適用（滑らかな開始と終了）
+      const easeProgress = this.easeInOutQuart(progress);
+      
+      // ターゲットを更新
+      this.controls.target.lerpVectors(startTarget, targetPosition, easeProgress);
+      
+      // カメラの位置も補間
+      const direction = new THREE.Vector3().subVectors(this.camera.position, this.controls.target).normalize();
+      this.camera.position.copy(
+        this.controls.target.clone().add(direction.multiplyScalar(targetDistance))
+      );
+      
+      // コントロールを更新
+      this.controls.update();
+      
+      // アニメーションが完了していない場合、次のフレームも実行
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    // アニメーションの開始
+    animate();
+  }
+  
+  /**
+   * イージング関数（滑らかなアニメーションのため）
+   * @param {number} t - 0〜1の進行度
+   * @returns {number} - イージングを適用した進行度
+   */
+  private easeInOutCubic(t: number): number {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  /**
+   * より強調された滑らかさのためのeaseInOutQuart関数
+   * @param {number} t - 0〜1の進行度
+   * @returns {number} - イージングを適用した進行度
+   */
+  private easeInOutQuart(t: number): number {
+    return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
+  }
+
+  /**
    * コントロールパネルを設定します
    */
   private setupControlPanel(): void {
-    const controlPanel = new ControlPanel({
+    new ControlPanel({
       onBloomChange: this.updateBloomSettings.bind(this),
       onRotationChange: this.updateRotationSpeed.bind(this),
       onZoomChange: this.updateZoom.bind(this),
@@ -265,7 +439,8 @@ class PixelArtScene {
       (window as any).__stats.begin();
     }
     
-    // コントロールの更新
+    // コントロールの更新 - ダンピング値を調整して動きをスムーズに
+    this.controls.dampingFactor = 0.08;
     this.controls.update();
     
     // アニメーション中であれば、ピクセルジェネレータを更新
@@ -273,8 +448,18 @@ class PixelArtScene {
       this.pixelGenerator.update();
     }
     
-    // シーンのレンダリング
-    this.composer.render();
+    // シーンのレンダリング - 固定座標でレンダリングし、小数点以下の揺らぎを防止
+    try {
+      this.camera.matrixAutoUpdate = false;
+      this.camera.updateMatrix(); // マニュアルでマトリックスを更新
+      
+      this.composer.render();
+      
+      this.camera.matrixAutoUpdate = true; // 元に戻す
+    } catch (e) {
+      console.error('レンダリングエラー:', e);
+      this.camera.matrixAutoUpdate = true; // エラー時も戻す
+    }
     
     // Statsモニターの更新（存在する場合）
     if ((window as any).__stats) {
@@ -305,19 +490,79 @@ class PixelArtScene {
 
   /**
    * カメラのズーム値を更新します
-   * @param {number} zoom - ズーム値
+   * 縦長画像の場合は調整された範囲でズームするように修正
+   * @param {number} zoom - ズーム値（0〜100）
    */
   private updateZoom(zoom: number): void {
-    this.camera.position.z = 15 - (zoom / 10);
+    const minZ = this.cameraAdjusted ? this.defaultCameraDistance * 0.3 : 5;
+    const maxZ = this.cameraAdjusted ? this.defaultCameraDistance * 1.5 : 15;
+    
+    // ズーム値（0〜100）をカメラ位置の範囲（maxZ〜minZ）にマッピング
+    const zoomFactor = zoom / 100;
+    this.camera.position.z = maxZ - (maxZ - minZ) * zoomFactor;
   }
 
   /**
    * カメラとコントロールをリセットします
+   * 画像のサイズや縦横比に基づいて最適な表示位置を計算します
    */
   private resetView(): void {
-    this.camera.position.set(0, 0, 10);
-    this.camera.lookAt(0, 0, 0);
-    this.controls.reset();
+    // ビューをリセット前に現在の情報を保存
+    const startPosition = this.camera.position.clone();
+    const startTarget = this.controls.target.clone();
+    
+    // カメラの基本位置を設定
+    const origin = new THREE.Vector3(0, 0, 0);
+    let optimalDistance = this.defaultCameraDistance;
+    
+    // 画像のアスペクト比と最大サイズを取得
+    const aspectRatio = this.pixelGenerator.getImageAspectRatio();
+    const maxDimension = this.pixelGenerator.getMaxDimension();
+    
+    // 画像サイズに基づいて最適なカメラ距離を計算
+    if (maxDimension > 0) {
+      // カメラの視野角を考慮
+      const fov = this.camera.fov;
+      
+      // 画像全体が視界に入るように距離を計算
+      // 画像が大きいほど、より遠くから見る必要がある
+      const baseDistance = (maxDimension / 2) / Math.tan((fov / 2) * Math.PI / 180);
+      
+      // コンテナのアスペクト比を考慮した調整
+      const container = document.getElementById('canvas-container');
+      if (container) {
+        const containerAspect = container.clientWidth / container.clientHeight;
+        
+        // 画像とコンテナのアスペクト比に基づいて距離を調整
+        // 縦長画像は横長コンテナでより遠くから見る必要がある
+        if (aspectRatio > 1 && containerAspect > 1) {
+          // 縦長画像、横長コンテナ
+          optimalDistance = baseDistance * 1.3;
+        } else if (aspectRatio < 1 && containerAspect < 1) {
+          // 横長画像、縦長コンテナ
+          optimalDistance = baseDistance * 1.3;
+        } else {
+          // その他の組み合わせ
+          optimalDistance = baseDistance * 1.2;
+        }
+      } else {
+        // コンテナが取得できない場合はデフォルト値
+        optimalDistance = baseDistance * 1.2;
+      }
+    }
+    
+    // カメラ位置を設定
+    this.camera.position.set(0, optimalDistance * 0.1, optimalDistance);
+    this.camera.lookAt(origin);
+    
+    // コントロールのターゲットをリセット
+    this.controls.target.copy(origin);
+    
+    // カメラトランジションを開始
+    this.startCameraTransition(origin, optimalDistance);
+    
+    // コントロールの更新
+    this.controls.update();
   }
 
   /**
@@ -327,6 +572,56 @@ class PixelArtScene {
   private toggleAnimation(isAnimating: boolean): void {
     this.isAnimating = isAnimating;
   }
+
+  /**
+   * クリックフォーカス機能をセットアップします
+   */
+  private setupClickFocus(): void {
+    // クリック位置のオブジェクトにフォーカスする処理
+    window.addEventListener('dblclick', (event) => {
+      // マウス座標を正規化（-1から1の範囲に変換）
+      const mouse = new THREE.Vector2();
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      // レイキャスターを使ってオブジェクトを検出
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, this.camera);
+      
+      // シーン内の全オブジェクトを対象に検出
+      const intersects = raycaster.intersectObjects(this.scene.children, true);
+      
+      if (intersects.length > 0) {
+        // 一番手前のオブジェクトの位置にフォーカス
+        const clickedPoint = intersects[0].point;
+        
+        // フォーカスとズームを有効にして実行
+        this.focusOnPosition(clickedPoint, true);
+        
+        // フォーカスイベントの発生を表示
+        console.log('フォーカス位置:', clickedPoint);
+      }
+    });
+    
+    // 操作説明の更新
+    const controlsInfo = document.getElementById('controls-info');
+    if (controlsInfo) {
+      const listElement = controlsInfo.querySelector('ul');
+      if (listElement) {
+        // すでに追加されているかチェック
+        let focusItem = Array.from(listElement.children).find(
+          item => item.textContent?.includes('ダブルクリック')
+        ) as HTMLLIElement;
+        
+        // 要素がなければ新しく作成
+        if (!focusItem) {
+          focusItem = document.createElement('li');
+          focusItem.textContent = 'ダブルクリック：特定部分にフォーカスしてズーム';
+          listElement.appendChild(focusItem);
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -334,7 +629,7 @@ class PixelArtScene {
  */
 document.addEventListener('DOMContentLoaded', () => {
   try {
-    const scene = new PixelArtScene();
+    new PixelArtScene();
   } catch (error) {
     console.error('アプリケーションの初期化に失敗しました:', error);
   }

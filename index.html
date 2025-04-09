@@ -19,7 +19,7 @@
             
             <div class="control-group">
                 <label for="zoom-level" class="control-label">ズーム</label>
-                <input type="range" id="zoom-level" class="slider" min="50" max="150" value="100">
+                <input type="range" id="zoom-level" class="slider" min="0" max="100" value="50">
             </div>
             
             <div class="control-group">
@@ -31,6 +31,16 @@
                 <button id="reset-view" class="button">ビューをリセット</button>
                 <button id="toggle-animation" class="button">アニメーション ON/OFF</button>
             </div>
+        </div>
+        
+        <div id="controls-info" class="controls-info">
+            <h4>操作方法</h4>
+            <ul>
+                <li>左クリック + ドラッグ：回転</li>
+                <li>右クリック + ドラッグ：移動</li>
+                <li>スクロール：ズーム</li>
+                <li>中クリック + ドラッグ：ズーム</li>
+            </ul>
         </div>
     </div>
     
