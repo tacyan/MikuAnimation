@@ -36,10 +36,20 @@ export class PixelGenerator {
     const textureLoader = new THREE.TextureLoader();
     this.texture = await new Promise((resolve) => {
       textureLoader.load(imagePath, (texture) => {
-        // テクスチャフィルタリングを最適化
+        // テクスチャフィルタリングを最適化して縦線バグを修正
         texture.minFilter = THREE.NearestFilter;
         texture.magFilter = THREE.NearestFilter;
         texture.generateMipmaps = false; // ミップマップを無効化してクリアな表示
+        
+        // テクスチャのラップモードを修正して繰り返しによる縦線を防止
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        
+        // テクスチャの境界線処理を改善
+        texture.anisotropy = 1; // アニソトロピックフィルタリングを最小化
+        
+        // テクスチャの変更を適用
+        texture.needsUpdate = true;
         
         resolve(texture);
       });
@@ -73,9 +83,17 @@ export class PixelGenerator {
     const image = this.texture.image;
     
     // 解像度を調整して処理するピクセル数を設定
-    // 偶数サイズに調整して中心軸のズレを防止
-    const sampledWidth = Math.floor(image.width * this.pixelResolution / 2) * 2;
-    const sampledHeight = Math.floor(image.height * this.pixelResolution / 2) * 2;
+    // より精密な計算で縦線バグを防止
+    const rawWidth = image.width * this.pixelResolution;
+    const rawHeight = image.height * this.pixelResolution;
+    
+    // 小数点以下を切り捨てず、正確に四捨五入して偶数に調整
+    let sampledWidth = Math.round(rawWidth);
+    let sampledHeight = Math.round(rawHeight);
+    
+    // 確実に偶数にするための調整（奇数だった場合は+1）
+    sampledWidth = sampledWidth % 2 === 0 ? sampledWidth : sampledWidth + 1;
+    sampledHeight = sampledHeight % 2 === 0 ? sampledHeight : sampledHeight + 1;
     
     canvas.width = sampledWidth;
     canvas.height = sampledHeight;
@@ -84,10 +102,16 @@ export class PixelGenerator {
     try {
       // @ts-ignore
       context.imageSmoothingEnabled = false; // ピクセル化された見た目を維持
+      // @ts-ignore
+      context.imageSmoothingQuality = 'high'; // 高品質設定を追加
     } catch (e) {
       console.warn('高品質リサンプリングの設定に失敗しました', e);
     }
     
+    // クリアな描画のためキャンバスをクリア
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // より精密な描画
     context.drawImage(image, 0, 0, sampledWidth, sampledHeight);
 
     const imageData = context.getImageData(0, 0, sampledWidth, sampledHeight);
@@ -161,10 +185,14 @@ export class PixelGenerator {
           enhancedG = Math.max(0, Math.min(1, enhancedG));
           enhancedB = Math.max(0, Math.min(1, enhancedB));
           
-          // 位置を設定 - 座標を固定した整数倍に調整して揺らぎをなくす
-          // pixelSizeの倍数にスナップさせる
-          const posX = Math.floor((x - centerX) * 10) / 10 * this.pixelSize;
-          const posY = Math.floor((centerY - y) * 10) / 10 * this.pixelSize;
+          // 位置を設定 - より精密な計算で縦線バグを防止
+          // 小数点以下の精度を向上させ、丸め誤差を防止
+          const exactX = (x - centerX) * this.pixelSize;
+          const exactY = (centerY - y) * this.pixelSize;
+          
+          // 整数値へのスナップを廃止し、正確な位置を使用
+          const posX = exactX;
+          const posY = exactY;
           
           // スケールも1に固定して揺らぎを防止
           matrix.compose(
