@@ -254,7 +254,7 @@ class PixelArtScene {
         this.scene.remove(existingPixels);
       }
       
-      const url = imageUrl || '/src/local_image/C3BUam2VEAACSXg.jpg';
+      const url = imageUrl || '/images/C3BUam2VEAACSXg.jpg';
       const pixels = await this.pixelGenerator.generateFromImage(url);
       pixels.name = 'pixelArt';
       this.scene.add(pixels);
