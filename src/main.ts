@@ -439,7 +439,6 @@ class PixelArtScene {
       onRotationChange: this.updateRotationSpeed.bind(this),
       onZoomChange: this.updateZoom.bind(this),
       onResetView: this.resetView.bind(this),
-      onToggleAnimation: this.toggleAnimation.bind(this),
       onImageUpload: this.handleImageUpload.bind(this)
     });
   }
@@ -735,13 +734,6 @@ class PixelArtScene {
     }
   }
 
-  /**
-   * アニメーションの有効/無効を切り替えます
-   * @param {boolean} isAnimating - アニメーション状態
-   */
-  private toggleAnimation(isAnimating: boolean): void {
-    this.isAnimating = isAnimating;
-  }
 
   /**
    * 画像アップロードを処理します

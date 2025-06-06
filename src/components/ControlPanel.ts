@@ -10,7 +10,6 @@ interface ControlPanelCallbacks {
   onRotationChange?: (speed: number) => void;
   onZoomChange?: (zoom: number) => void;
   onResetView?: () => void;
-  onToggleAnimation?: (isAnimating: boolean) => void;
   onImageUpload?: (imageData: string) => void;
   onStopRotation?: () => void;
 }
@@ -19,7 +18,6 @@ interface ControlPanelSettings {
   rotationSpeed: number;
   zoomLevel: number;
   effectIntensity: number;
-  isAnimating: boolean;
   isRotating: boolean;
   previousRotationSpeed?: number;
 }
@@ -36,7 +34,6 @@ export class ControlPanel {
     zoomLevel?: HTMLInputElement;
     effectIntensity?: HTMLInputElement;
     resetView?: HTMLButtonElement;
-    toggleAnimation?: HTMLButtonElement;
     imageUpload?: HTMLInputElement;
     uploadButton?: HTMLButtonElement;
     stopRotation?: HTMLButtonElement;
@@ -63,7 +60,6 @@ export class ControlPanel {
     this.elements.zoomLevel = document.getElementById('zoom-level') as HTMLInputElement;
     this.elements.effectIntensity = document.getElementById('effect-intensity') as HTMLInputElement;
     this.elements.resetView = document.getElementById('reset-view') as HTMLButtonElement;
-    this.elements.toggleAnimation = document.getElementById('toggle-animation') as HTMLButtonElement;
     this.elements.imageUpload = document.getElementById('image-upload') as HTMLInputElement;
     this.elements.uploadButton = document.getElementById('upload-button') as HTMLButtonElement;
     this.elements.stopRotation = document.getElementById('stop-rotation') as HTMLButtonElement;
@@ -103,10 +99,6 @@ export class ControlPanel {
     
     if (this.elements.resetView) {
       this.elements.resetView.addEventListener('click', this.handleResetView.bind(this));
-    }
-    
-    if (this.elements.toggleAnimation) {
-      this.elements.toggleAnimation.addEventListener('click', this.handleToggleAnimation.bind(this));
     }
     
     if (this.elements.imageUpload) {
@@ -205,23 +197,6 @@ export class ControlPanel {
     }
   }
 
-  /**
-   * アニメーションの切り替えを処理します
-   */
-  private handleToggleAnimation(): void {
-    this.settings.isAnimating = !this.settings.isAnimating;
-    
-    if (this.callbacks.onToggleAnimation) {
-      this.callbacks.onToggleAnimation(this.settings.isAnimating);
-    }
-    
-    if (this.elements.toggleAnimation) {
-      this.elements.toggleAnimation.textContent = 
-        this.settings.isAnimating ? 'アニメーション OFF' : 'アニメーション ON';
-    }
-    
-    this.saveSettings();
-  }
 
   /**
    * 設定を読み込みます
@@ -232,7 +207,6 @@ export class ControlPanel {
       rotationSpeed: 50,
       zoomLevel: 50,
       effectIntensity: 50,
-      isAnimating: true,
       isRotating: true,
       previousRotationSpeed: 50
     };
