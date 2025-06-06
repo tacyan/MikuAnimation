@@ -124,6 +124,16 @@ canvas {
   background-color: #b49562;
 }
 
+/* ファイルアップロード用のスタイル */
+.file-input {
+  display: none;
+}
+
+.upload-button {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
 /* モバイルデバイスの最適化 */
 @media (max-width: 768px) {
   .control-panel {

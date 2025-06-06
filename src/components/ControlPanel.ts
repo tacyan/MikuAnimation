@@ -11,6 +11,7 @@ interface ControlPanelCallbacks {
   onZoomChange?: (zoom: number) => void;
   onResetView?: () => void;
   onToggleAnimation?: (isAnimating: boolean) => void;
+  onImageUpload?: (imageData: string) => void;
 }
 
 interface ControlPanelSettings {
@@ -33,6 +34,8 @@ export class ControlPanel {
     effectIntensity?: HTMLInputElement;
     resetView?: HTMLButtonElement;
     toggleAnimation?: HTMLButtonElement;
+    imageUpload?: HTMLInputElement;
+    uploadButton?: HTMLButtonElement;
   };
 
   /**
@@ -57,6 +60,8 @@ export class ControlPanel {
     this.elements.effectIntensity = document.getElementById('effect-intensity') as HTMLInputElement;
     this.elements.resetView = document.getElementById('reset-view') as HTMLButtonElement;
     this.elements.toggleAnimation = document.getElementById('toggle-animation') as HTMLButtonElement;
+    this.elements.imageUpload = document.getElementById('image-upload') as HTMLInputElement;
+    this.elements.uploadButton = document.getElementById('upload-button') as HTMLButtonElement;
     
     // 保存された設定を適用
     if (this.elements.rotationSpeed) {
@@ -97,6 +102,14 @@ export class ControlPanel {
     
     if (this.elements.toggleAnimation) {
       this.elements.toggleAnimation.addEventListener('click', this.handleToggleAnimation.bind(this));
+    }
+    
+    if (this.elements.imageUpload) {
+      this.elements.imageUpload.addEventListener('change', this.handleImageSelect.bind(this));
+    }
+    
+    if (this.elements.uploadButton) {
+      this.elements.uploadButton.addEventListener('click', this.handleUploadClick.bind(this));
     }
   }
 
@@ -220,6 +233,40 @@ export class ControlPanel {
       localStorage.setItem('pixelArtSettings', JSON.stringify(this.settings));
     } catch (error) {
       console.error('設定の保存に失敗しました:', error);
+    }
+  }
+
+  /**
+   * 画像選択を処理します
+   */
+  private handleImageSelect(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const imageData = e.target?.result as string;
+        if (this.callbacks.onImageUpload) {
+          this.callbacks.onImageUpload(imageData);
+        }
+      };
+      
+      reader.onerror = () => {
+        console.error('画像の読み込みに失敗しました');
+      };
+      
+      reader.readAsDataURL(file);
+    }
+  }
+
+  /**
+   * アップロードボタンのクリックを処理します
+   */
+  private handleUploadClick(): void {
+    if (this.elements.imageUpload) {
+      this.elements.imageUpload.click();
     }
   }
 }

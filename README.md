@@ -51,14 +51,7 @@ npm run build
 ### 画像を変える
 
 ```
-src/main.ts
-の
-const pixels = await this.pixelGenerator.generateFromImage('/src/local_image/C3BUam2VEAACSXg.jpg');
-を
-src/local_image
-に画像を置いて
-src/local_image/shopping.png
-とかにすると動く画像を変えれます。
+アップロードボタンで好きな画像に変えれます。
 ```
 
 ビルドされたファイルは `dist` ディレクトリに出力されます。
