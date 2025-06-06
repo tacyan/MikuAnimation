@@ -273,50 +273,40 @@ class PixelArtScene {
     const aspectRatio = this.pixelGenerator.getImageAspectRatio();
     const maxDimension = this.pixelGenerator.getMaxDimension();
     
-    if (aspectRatio > 1) {
-      // 縦長画像の場合
-      console.log('縦長画像を検出しました。カメラを調整します。');
-      
-      // カメラの視野角を計算（縦長画像では広い視野角が必要）
-      const fov = this.camera.fov;
-      
-      // 画像の全体が見えるように距離を計算
-      // 縦長の場合は高さに基づいて計算
-      const distance = (maxDimension / 2) / Math.tan((fov / 2) * Math.PI / 180);
-      
-      // 余裕を持たせた距離に設定
-      const adjustedDistance = distance * 1.2;
-      this.defaultCameraDistance = adjustedDistance;
-      
-      // カメラ位置の更新
-      this.camera.position.z = this.defaultCameraDistance;
-      this.camera.updateProjectionMatrix();
-      
-      // コントロールの制限も更新（より広範囲の移動を許可）
-      this.controls.maxDistance = this.defaultCameraDistance * 2.5;
-      this.controls.minDistance = this.defaultCameraDistance * 0.25;
-      
-      // より自由なパン操作のために、ターゲットオフセットの範囲を設定
-      // const panOffset = maxDimension * 1.5;  // 未使用の変数を削除
-      // 実際のメソッドがThree.jsのバージョンによって異なるため、両方のアプローチを試みる
-      try {
-        // @ts-ignore - 標準的なプロパティではない可能性がある
-        if (this.controls.maxPolarAngle) {
-          // ポーラー角の制限を緩和
-          this.controls.maxPolarAngle = Math.PI * 0.85;
-          this.controls.minPolarAngle = Math.PI * 0.15;
-        }
-      } catch (e) {
-        console.warn('カメラコントロールの角度制限設定に失敗しました', e);
-      }
-      
-      this.cameraAdjusted = true;
+    console.log('画像サイズ情報:', { aspectRatio, maxDimension });
+    
+    // カメラの視野角を使用して適切な距離を計算
+    const fov = this.camera.fov;
+    
+    // 画像全体がフレーム内に収まるように距離を計算
+    const distance = (maxDimension / 2) / Math.tan((fov / 2) * Math.PI / 180);
+    
+    // 十分な余裕を持たせた距離に設定（全体が見えるように）
+    const adjustedDistance = distance * 1.8; // 余裕を大きくして全体が見えるように
+    this.defaultCameraDistance = adjustedDistance;
+    
+    console.log('カメラ距離設定:', adjustedDistance);
+    
+    // カメラ位置の更新
+    this.camera.position.set(0, adjustedDistance * 0.2, adjustedDistance);
+    this.camera.lookAt(0, 0, 0);
+    this.camera.updateProjectionMatrix();
+    
+    // コントロールの制限を更新（より幅広なズーム範囲）
+    this.controls.maxDistance = adjustedDistance * 4; // ズームアウト範囲を幅広に
+    this.controls.minDistance = adjustedDistance * 0.1; // ズームイン範囲を幅広に
+    
+    // カメラコントロールの角度制限を設定
+    try {
+      this.controls.maxPolarAngle = Math.PI * 0.9; // もっと上から見えるように
+      this.controls.minPolarAngle = Math.PI * 0.1; // もっと下から見えるように
+    } catch (e) {
+      console.warn('カメラコントロールの角度制限設定に失敗しました', e);
     }
     
-    // 初期位置で微妙に角度をつけて、立体感を強調
-    this.camera.position.y = this.defaultCameraDistance * 0.1;
-    this.camera.lookAt(0, 0, 0);
+    // コントロールの更新
     this.controls.update();
+    this.cameraAdjusted = true;
   }
 
   /**
@@ -556,12 +546,27 @@ class PixelArtScene {
    * @param {number} zoom - ズーム値（0〜100）
    */
   private updateZoom(zoom: number): void {
-    const minZ = this.cameraAdjusted ? this.defaultCameraDistance * 0.3 : 5;
-    const maxZ = this.cameraAdjusted ? this.defaultCameraDistance * 1.5 : 15;
+    // ズーム範囲を適度に調整（より実用的な範囲に）
+    const baseDistance = this.defaultCameraDistance;
+    const minDistance = baseDistance * 0.3; // より近づけるように
+    const maxDistance = baseDistance * 2.5; // より引けるように
     
-    // ズーム値（0〜100）をカメラ位置の範囲（maxZ〜minZ）にマッピング
-    const zoomFactor = zoom / 100;
-    this.camera.position.z = maxZ - (maxZ - minZ) * zoomFactor;
+    // ズーム値（0〜100）を距離の範囲にマッピング
+    // 非線形マッピングで中間値での変化を滑らかに
+    const normalizedZoom = zoom / 100;
+    const smoothZoom = Math.pow(normalizedZoom, 1.5); // カーブを調整
+    const targetDistance = maxDistance - (maxDistance - minDistance) * smoothZoom;
+    
+    // カメラの現在の方向を維持しながら距離を調整
+    const direction = new THREE.Vector3().subVectors(
+      this.camera.position, this.controls.target
+    ).normalize();
+    
+    this.camera.position.copy(
+      this.controls.target.clone().add(direction.multiplyScalar(targetDistance))
+    );
+    
+    this.controls.update();
   }
 
   /**
