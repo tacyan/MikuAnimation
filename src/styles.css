@@ -73,6 +73,9 @@ canvas {
 
 .control-group {
   margin-bottom: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .control-label {
@@ -118,6 +121,10 @@ canvas {
   cursor: pointer;
   transition: background-color 0.2s;
   font-size: 0.8rem;
+  min-width: 120px;
+  margin: 0.2rem;
+  display: inline-block;
+  text-align: center;
 }
 
 .button:hover {
@@ -145,6 +152,7 @@ canvas {
   .button {
     padding: 0.3rem 0.6rem;
     font-size: 0.7rem;
+    min-width: 100px;
   }
 }
 

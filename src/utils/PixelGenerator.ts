@@ -249,10 +249,13 @@ export class PixelGenerator {
 
   /**
    * 回転速度を設定します
-   * @param {number} speed - 回転速度
+   * @param {number} speed - 回転速度（0-100の値）
    */
   setRotationSpeed(speed: number): void {
-    this.rotationSpeed = speed * 0.001;
+    // 0-100の値を0-0.02の範囲にマッピング（より強弱をつける）
+    // 二次関数を使って低速域を細かく、高速域を大きく変化させる
+    const normalizedSpeed = speed / 100;
+    this.rotationSpeed = Math.pow(normalizedSpeed, 2) * 0.02;
   }
 
   /**

@@ -12,6 +12,7 @@ interface ControlPanelCallbacks {
   onResetView?: () => void;
   onToggleAnimation?: (isAnimating: boolean) => void;
   onImageUpload?: (imageData: string) => void;
+  onStopRotation?: () => void;
 }
 
 interface ControlPanelSettings {
@@ -19,6 +20,8 @@ interface ControlPanelSettings {
   zoomLevel: number;
   effectIntensity: number;
   isAnimating: boolean;
+  isRotating: boolean;
+  previousRotationSpeed?: number;
 }
 
 /**
@@ -36,6 +39,7 @@ export class ControlPanel {
     toggleAnimation?: HTMLButtonElement;
     imageUpload?: HTMLInputElement;
     uploadButton?: HTMLButtonElement;
+    stopRotation?: HTMLButtonElement;
   };
 
   /**
@@ -62,6 +66,7 @@ export class ControlPanel {
     this.elements.toggleAnimation = document.getElementById('toggle-animation') as HTMLButtonElement;
     this.elements.imageUpload = document.getElementById('image-upload') as HTMLInputElement;
     this.elements.uploadButton = document.getElementById('upload-button') as HTMLButtonElement;
+    this.elements.stopRotation = document.getElementById('stop-rotation') as HTMLButtonElement;
     
     // 保存された設定を適用
     if (this.elements.rotationSpeed) {
@@ -111,6 +116,10 @@ export class ControlPanel {
     if (this.elements.uploadButton) {
       this.elements.uploadButton.addEventListener('click', this.handleUploadClick.bind(this));
     }
+    
+    if (this.elements.stopRotation) {
+      this.elements.stopRotation.addEventListener('click', this.handleStopRotation.bind(this));
+    }
   }
 
   /**
@@ -121,6 +130,19 @@ export class ControlPanel {
     const target = event.target as HTMLInputElement;
     const speed = parseInt(target.value, 10);
     this.settings.rotationSpeed = speed;
+    
+    // 速度が0より大きい場合は回転中とみなす
+    if (speed > 0) {
+      this.settings.isRotating = true;
+      if (this.elements.stopRotation) {
+        this.elements.stopRotation.textContent = '回転停止';
+      }
+    } else {
+      this.settings.isRotating = false;
+      if (this.elements.stopRotation) {
+        this.elements.stopRotation.textContent = '回転開始';
+      }
+    }
     
     if (this.callbacks.onRotationChange) {
       this.callbacks.onRotationChange(speed);
@@ -210,7 +232,9 @@ export class ControlPanel {
       rotationSpeed: 50,
       zoomLevel: 50,
       effectIntensity: 50,
-      isAnimating: true
+      isAnimating: true,
+      isRotating: true,
+      previousRotationSpeed: 50
     };
     
     try {
@@ -267,6 +291,40 @@ export class ControlPanel {
   private handleUploadClick(): void {
     if (this.elements.imageUpload) {
       this.elements.imageUpload.click();
+    }
+  }
+
+  /**
+   * 回転停止ボタンのクリックを処理します
+   */
+  private handleStopRotation(): void {
+    if (this.elements.rotationSpeed) {
+      if (this.settings.isRotating) {
+        // 回転停止
+        this.settings.previousRotationSpeed = parseInt(this.elements.rotationSpeed.value, 10);
+        this.elements.rotationSpeed.value = '0';
+        this.settings.isRotating = false;
+        
+        if (this.elements.stopRotation) {
+          this.elements.stopRotation.textContent = '回転開始';
+        }
+      } else {
+        // 回転再開
+        const previousSpeed = this.settings.previousRotationSpeed || 50;
+        this.elements.rotationSpeed.value = previousSpeed.toString();
+        this.settings.isRotating = true;
+        
+        if (this.elements.stopRotation) {
+          this.elements.stopRotation.textContent = '回転停止';
+        }
+      }
+      
+      this.handleRotationChange({ target: this.elements.rotationSpeed } as Event);
+      this.saveSettings();
+    }
+    
+    if (this.callbacks.onStopRotation) {
+      this.callbacks.onStopRotation();
     }
   }
 }
