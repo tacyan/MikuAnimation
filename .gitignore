@@ -69,3 +69,4 @@ tmp/
 # ローカル開発用設定
 *.local 
 .specstory
+.cursorindexingignore
