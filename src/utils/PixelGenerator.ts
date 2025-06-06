@@ -18,7 +18,7 @@ export class PixelGenerator {
   private pixelMaterial: THREE.MeshPhongMaterial | null = null;
   private imageAspectRatio: number = 1; // 画像のアスペクト比
   private imageDimensions: {width: number, height: number} = {width: 0, height: 0}; // 画像の元のサイズ
-  private pixelGap = 0; // ギャップを0に設定して斜線のズレを防止
+  // private pixelGap = 0; // ギャップを0に設定して斜線のズレを防止（未使用のためコメントアウト）
 
   /**
    * コンストラクタ

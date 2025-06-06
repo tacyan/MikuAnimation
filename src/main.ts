@@ -246,17 +246,9 @@ class PixelArtScene {
   /**
    * ピクセルアートを設定します
    */
-  private async setupPixelArt(imageUrl?: string): Promise<void> {
+  private async setupPixelArt(): Promise<void> {
     try {
-      // 既存のピクセルアートを削除
-      const existingPixels = this.scene.children.find(child => child.name === 'pixelArt');
-      if (existingPixels) {
-        this.scene.remove(existingPixels);
-      }
-      
-      const url = imageUrl || '/src/local_image/C3BUam2VEAACSXg.jpg';
-      const pixels = await this.pixelGenerator.generateFromImage(url);
-      pixels.name = 'pixelArt';
+      const pixels = await this.pixelGenerator.generateFromImage('/images/C3BUam2VEAACSXg.jpg');
       this.scene.add(pixels);
       
       // 画像読み込み後にカメラ設定を調整
@@ -439,8 +431,7 @@ class PixelArtScene {
       onRotationChange: this.updateRotationSpeed.bind(this),
       onZoomChange: this.updateZoom.bind(this),
       onResetView: this.resetView.bind(this),
-      onToggleAnimation: this.toggleAnimation.bind(this),
-      onImageUpload: this.handleImageUpload.bind(this)
+      onToggleAnimation: this.toggleAnimation.bind(this)
     });
   }
 
@@ -741,20 +732,6 @@ class PixelArtScene {
    */
   private toggleAnimation(isAnimating: boolean): void {
     this.isAnimating = isAnimating;
-  }
-
-  /**
-   * 画像アップロードを処理します
-   * @param {string} imageData - Base64エンコードされた画像データ
-   */
-  private async handleImageUpload(imageData: string): Promise<void> {
-    try {
-      console.log('新しい画像をアップロードしています...');
-      await this.setupPixelArt(imageData);
-      console.log('画像のアップロードが完了しました');
-    } catch (error) {
-      console.error('画像のアップロードに失敗しました:', error);
-    }
   }
 
   /**
