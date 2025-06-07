@@ -281,8 +281,8 @@ class PixelArtScene {
     // 画像全体がフレーム内に収まるように距離を計算
     const distance = (maxDimension / 2) / Math.tan((fov / 2) * Math.PI / 180);
     
-    // 十分な余裕を持たせた距離に設定（全体が見えるように）
-    const adjustedDistance = distance * 1.8; // 余裕を大きくして全体が見えるように
+    // 初期ズーム75に対応した距離に設定（現在の表示サイズを基準に）
+    const adjustedDistance = distance * 1.2; // より近めに配置してズーム75相当のサイズに
     this.defaultCameraDistance = adjustedDistance;
     
     console.log('カメラ距離設定:', adjustedDistance);

@@ -205,7 +205,7 @@ export class ControlPanel {
   private loadSettings(): ControlPanelSettings {
     const defaultSettings: ControlPanelSettings = {
       rotationSpeed: 50,
-      zoomLevel: 50,
+      zoomLevel: 75,
       effectIntensity: 50,
       isRotating: true,
       previousRotationSpeed: 50
@@ -293,7 +293,7 @@ export class ControlPanel {
         }
       }
       
-      this.handleRotationChange({ target: this.elements.rotationSpeed } as Event);
+      this.handleRotationChange({ target: this.elements.rotationSpeed } as unknown as Event);
       this.saveSettings();
     }
     
